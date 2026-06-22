@@ -72,7 +72,7 @@ const shuffle = arr => {
 };
 const keyFor = e => "sub_"+e.trim().toLowerCase().replace(/[^a-z0-9]/g,"_").slice(0,120);
 const fmtTime = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
-const fmtDate = iso => { try{return new Date(iso).toLocaleString();}catch{return iso;} };
+const fmtDate = ts => { try{return new Date(ts * 1000).toLocaleString();}catch{return ts;} };
 const hasStorage = () => typeof window!=="undefined"&&window.storage&&typeof window.storage.set==="function";
 
 const css = `
@@ -266,8 +266,20 @@ function App(){
     const percent=Math.round((correct/TOTAL)*100);
     const passed=percent>=CONFIG.PASS_PERCENT;
     const timeTaken=Math.min(CONFIG.DURATION_SEC,Math.round((Date.now()-startedAt.current)/1000));
-    const rec={name:name.trim(),email:email.trim().toLowerCase(),score:percent,correct,total:TOTAL,passed,tabSwitches:tabRef.current,timeTaken,textAnswer:textRef.current.trim(),breakdown,submittedAt:new Date().toISOString()};
+    
+    // Converted submittedAt to Unix Timestamp in seconds
+    const unixTimestampSeconds = Math.floor(Date.now() / 1000);
+    
+    const rec={name:name.trim(),email:email.trim().toLowerCase(),score:percent,correct,total:TOTAL,passed,tabSwitches:tabRef.current,timeTaken,textAnswer:textRef.current.trim(),breakdown,submittedAt:unixTimestampSeconds};
     setResult(rec);
+    
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyfiz4-WIeDpQtmzZDXRTqPkIw5_R9qIymZ3WonS7lNWYxrYgK2X2mx50b8PIGrwQPBtQ/exec";
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(rec)
+    }).catch(err => console.error("Error saving to sheet:", err));
+
     try{setResultCode(btoa(unescape(encodeURIComponent(JSON.stringify(rec)))));}catch{setResultCode("");}
     if(hasStorage()){try{await window.storage.set(keyFor(rec.email),JSON.stringify(rec),true);}catch{}}
     setView("submitted");
