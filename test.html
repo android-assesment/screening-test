@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Clickretina · Android Developer Screening</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{min-height:100%;background:#0a0f14}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const CONFIG = {
+  ROLE: "Android Developer",
+  COMPANY: "Clickretina",
+  DURATION_SEC: 15 * 60,
+  PASS_PERCENT: 70,
+  ADMIN_PASSCODE: "clickretina2026",
+  SHOW_SCORE_TO_CANDIDATE: true,
+  ONE_ATTEMPT_PER_EMAIL: true,
+};
+
+const QUESTIONS = [
+  { id:"q1", topic:"Android", q:"Which language does Google officially recommend for modern Android app development?",
+    options:[{id:"a",text:"Java only"},{id:"b",text:"Kotlin"},{id:"c",text:"Python"},{id:"d",text:"Swift"}], correct:"b"},
+  { id:"q2", topic:"Android", q:"In Android, what does a single Activity most directly represent?",
+    options:[{id:"a",text:"A background service"},{id:"b",text:"A single screen with a user interface"},{id:"c",text:"The app's local database"},{id:"d",text:"A network request"}], correct:"b"},
+  { id:"q3", topic:"Android", q:"Which file declares an Android app's components, permissions and entry points?",
+    options:[{id:"a",text:"build.gradle"},{id:"b",text:"strings.xml"},{id:"c",text:"AndroidManifest.xml"},{id:"d",text:"MainActivity.kt"}], correct:"c"},
+  { id:"q4", topic:"Kotlin", q:"Which statement about a `lateinit var` is correct?",
+    options:[{id:"a",text:"It can be used with primitive types like Int"},{id:"b",text:"Accessing it before initialization throws UninitializedPropertyAccessException"},{id:"c",text:"It can be declared with val"},{id:"d",text:"It is automatically initialized to null"}], correct:"b"},
+  { id:"q5", topic:"Kotlin", q:"What is the output of this code?",
+    code:"data class User(val id: Int)\nval a = User(1)\nval b = User(1)\nprintln(a == b)\nprintln(a === b)",
+    options:[{id:"a",text:"true / true"},{id:"b",text:"true / false"},{id:"c",text:"false / false"},{id:"d",text:"false / true"}], correct:"b"},
+  { id:"q6", topic:"Kotlin", q:"What happens when this code runs?",
+    code:"fun fetch(): String? = null\nval s = fetch()!!\nprintln(s.length)",
+    options:[{id:"a",text:"Prints 0"},{id:"b",text:"Prints null"},{id:"c",text:"Throws a NullPointerException at the !! call"},{id:"d",text:"Fails to compile"}], correct:"c"},
+  { id:"q7", topic:"Coroutines", q:"Inside an Activity you start a long task with GlobalScope.launch { } that updates a TextView when it finishes. What is the main risk?",
+    options:[{id:"a",text:"It always runs too slowly"},{id:"b",text:"It is not lifecycle-aware — it can keep running and try to update the UI after the Activity is destroyed, leaking it"},{id:"c",text:"GlobalScope cannot perform network calls"},{id:"d",text:"It blocks the main thread until it finishes"}], correct:"b"},
+  { id:"q8", topic:"Networking", q:"You need to call a Retrofit endpoint and show the result without freezing the UI. The correct approach is to:",
+    options:[{id:"a",text:"Call it directly in onCreate on the main thread"},{id:"b",text:"Wrap it in Thread.sleep() before calling"},{id:"c",text:"Make it a suspend function and call it from a coroutine, running the I/O on Dispatchers.IO"},{id:"d",text:"Run it inside the XML layout file"}], correct:"c"},
+  { id:"q9", topic:"Android", q:"An Activity stores a value in a normal member variable (not saved anywhere). The user rotates the device. By default, what happens to that value?",
+    options:[{id:"a",text:"It is preserved automatically across rotation"},{id:"b",text:"It is lost — the Activity is destroyed and recreated on the configuration change"},{id:"c",text:"It is saved to SharedPreferences automatically"},{id:"d",text:"Rotation has no effect on the Activity"}], correct:"b"},
+  { id:"q10", topic:"Android", q:"Your app freezes and the system shows an 'Application Not Responding' dialog. The most likely cause is:",
+    options:[{id:"a",text:"The project has too many XML files"},{id:"b",text:"A long or blocking operation is running on the main (UI) thread"},{id:"c",text:"You created too many coroutines"},{id:"d",text:"The device has a small screen"}], correct:"b"},
+  { id:"q11", topic:"Android", q:"While scrolling a RecyclerView quickly, some rows briefly show the wrong image — one that belonged to a different row. The most likely reason is:",
+    options:[{id:"a",text:"RecyclerView does not support images"},{id:"b",text:"onBindViewHolder doesn't reset the recycled view's state, so stale data is shown"},{id:"c",text:"The list simply has too many items"},{id:"d",text:"The wrong LayoutManager was used"}], correct:"b"},
+  { id:"q12", topic:"Android", q:"Which of these is a common cause of a memory leak in Android?",
+    options:[{id:"a",text:"Using val instead of var"},{id:"b",text:"Keeping a reference to an Activity or Context alive longer than its lifecycle (e.g. in a static field or singleton)"},{id:"c",text:"Declaring too many functions"},{id:"d",text:"Using a RecyclerView"}], correct:"b"},
+  { id:"q13", topic:"AI workflow", q:"An AI assistant confidently fixes your bug using a method from a library — but that method does not actually exist in the library. This is best described as:",
+    options:[{id:"a",text:"A normal feature you can safely use"},{id:"b",text:"An AI hallucination — you must verify the API against the real documentation"},{id:"c",text:"A network timeout"},{id:"d",text:"A Gradle sync error"}], correct:"b"},
+  { id:"q14", topic:"AI workflow", q:"For the most reliable help from an AI coding assistant on a tricky runtime bug, you should give it:",
+    options:[{id:"a",text:'"My app is broken, fix it"'},{id:"b",text:"The exact stack trace, the relevant code, expected vs actual behaviour, and what you've already tried"},{id:"c",text:'Your entire project with the message "debug this"'},{id:"d",text:"A request to guess the cause"}], correct:"b"},
+  { id:"q15", topic:"AI workflow", q:"An AI generates a function that compiles and passes your single happy-path test. Before relying on it, the most responsible step is to:",
+    options:[{id:"a",text:"Merge it — it compiles and a test passes"},{id:"b",text:"Ask the AI 'are you sure?' and trust its answer"},{id:"c",text:"Review the logic and add tests for edge, null and error cases"},{id:"d",text:"Rewrite the whole thing by hand just to be safe"}], correct:"c"},
+];
+
+const TEXT_QUESTION = "Describe a recent bug you fixed, and how an AI tool (Claude / Cursor / Copilot) helped — or where you had to correct the AI's output yourself. (3–4 lines)";
+const TOTAL = QUESTIONS.length;
+
+const shuffle = arr => {
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+};
+const keyFor = e => "sub_"+e.trim().toLowerCase().replace(/[^a-z0-9]/g,"_").slice(0,120);
+const fmtTime = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+const fmtDate = iso => { try{return new Date(iso).toLocaleString();}catch{return iso;} };
+const hasStorage = () => typeof window!=="undefined"&&window.storage&&typeof window.storage.set==="function";
+
+const css = `
+.cr-root{
+  --bg:#0a0f14;--panel:#101820;--panel2:#0c141b;--line:#1d2a33;--line2:#26343d;
+  --teal:#2dd4bf;--teal-dim:#1c7d72;--emerald:#34d399;--amber:#fbbf24;--red:#f87171;
+  --tx:#e6edf3;--tx-dim:#94a3ad;--tx-faint:#5e6e78;--code:#7ee0d2;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--tx);font-family:var(--sans);
+  min-height:100vh;
+  background-image:radial-gradient(900px 400px at 85% -10%,rgba(45,212,191,.07),transparent 60%);
+}
+.cr-root *{box-sizing:border-box}
+.cr-wrap{max-width:760px;margin:0 auto;padding:22px 18px 30px}
+.cr-mono{font-family:var(--mono)}.cr-faint{color:var(--tx-faint)}.cr-dim{color:var(--tx-dim)}
+.cr-window{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.cr-titlebar{display:flex;align-items:center;gap:8px;padding:11px 14px;background:var(--panel2);border-bottom:1px solid var(--line)}
+.cr-dot{width:11px;height:11px;border-radius:50%}
+.cr-tabname{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--tx-faint)}
+.cr-body{padding:22px 20px}
+.cr-eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.32em;text-transform:uppercase;color:var(--teal)}
+.cr-h1{font-family:var(--mono);font-weight:700;font-size:30px;line-height:1.1;margin:10px 0 4px}
+.cr-h1 b{color:var(--teal)}
+.cr-sub{color:var(--tx-dim);font-size:15px;line-height:1.55;margin:6px 0 0}
+.cr-comment{font-family:var(--mono);font-size:12.5px;color:var(--tx-faint);margin:22px 0 8px}
+.cr-label{font-family:var(--mono);font-size:12px;color:var(--tx-dim);display:block;margin:14px 0 6px}
+.cr-input{width:100%;background:var(--panel2);border:1px solid var(--line2);border-radius:9px;padding:12px 13px;color:var(--tx);font-size:14.5px;font-family:var(--sans);outline:none;transition:border-color .15s,box-shadow .15s}
+.cr-input:focus{border-color:var(--teal-dim);box-shadow:0 0 0 3px rgba(45,212,191,.15)}
+textarea.cr-input{resize:vertical;min-height:108px;line-height:1.5}
+.cr-btn{font-family:var(--mono);font-size:14px;font-weight:600;border-radius:9px;padding:12px 18px;border:1px solid transparent;cursor:pointer;transition:transform .08s,background .15s;display:inline-flex;align-items:center;gap:8px}
+.cr-btn:active{transform:translateY(1px)}
+.cr-btn:disabled{opacity:.45;cursor:not-allowed}
+.cr-btn-go{background:var(--teal);color:#05201d}
+.cr-btn-go:hover:not(:disabled){background:#3fe6d2}
+.cr-btn-ghost{background:transparent;color:var(--tx-dim);border-color:var(--line2)}
+.cr-btn-ghost:hover:not(:disabled){border-color:var(--teal-dim);color:var(--tx)}
+.cr-btn-danger{background:transparent;color:var(--red);border-color:rgba(248,113,113,.35)}
+.cr-btn-danger:hover{background:rgba(248,113,113,.12)}
+.cr-status{display:flex;align-items:center;gap:14px;padding:9px 14px;background:var(--panel2);border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px;flex-wrap:wrap}
+.cr-prog{flex:1;min-width:120px;height:6px;background:#0a1117;border-radius:99px;overflow:hidden}
+.cr-prog>span{display:block;height:100%;background:var(--teal);transition:width .25s}
+.cr-timer{padding:3px 9px;border-radius:6px;background:rgba(45,212,191,.12);color:var(--teal)}
+.cr-timer.warn{background:rgba(251,191,36,.14);color:var(--amber)}
+.cr-timer.crit{background:rgba(248,113,113,.16);color:var(--red);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.55}}
+.cr-qtopic{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.2);padding:3px 9px;border-radius:6px}
+.cr-qtext{font-size:18px;line-height:1.5;margin:14px 0 4px;font-weight:600}
+.cr-code{font-family:var(--mono);font-size:13.5px;line-height:1.6;background:#070d12;border:1px solid var(--line);border-left:3px solid var(--teal-dim);border-radius:8px;padding:13px 15px;margin:14px 0;color:var(--code);white-space:pre-wrap;overflow-x:auto}
+.cr-opts{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.cr-opt{display:flex;align-items:flex-start;gap:12px;text-align:left;width:100%;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:13px 14px;cursor:pointer;color:var(--tx);font-size:14.5px;line-height:1.45;transition:border-color .14s,background .14s}
+.cr-opt:hover{border-color:var(--teal-dim)}
+.cr-opt.sel{border-color:var(--teal);background:rgba(45,212,191,.08)}
+.cr-mark{flex:none;width:20px;height:20px;border-radius:50%;border:2px solid var(--line2);margin-top:1px;display:grid;place-items:center;transition:border-color .14s}
+.cr-opt.sel .cr-mark{border-color:var(--teal)}
+.cr-opt.sel .cr-mark::after{content:"";width:9px;height:9px;border-radius:50%;background:var(--teal)}
+.cr-dots{display:flex;flex-wrap:wrap;gap:7px;margin-top:22px}
+.cr-dotbtn{width:30px;height:30px;border-radius:7px;font-family:var(--mono);font-size:12px;border:1px solid var(--line2);background:var(--panel2);color:var(--tx-faint);cursor:pointer;transition:.12s}
+.cr-dotbtn:hover{border-color:var(--teal-dim);color:var(--tx)}
+.cr-dotbtn.done{border-color:var(--teal-dim);color:var(--teal);background:rgba(45,212,191,.08)}
+.cr-dotbtn.cur{outline:2px solid var(--teal);outline-offset:1px;color:var(--tx)}
+.cr-foot{display:flex;justify-content:space-between;gap:10px;margin-top:24px;border-top:1px solid var(--line);padding-top:18px}
+.cr-ring{width:130px;height:130px;margin:6px auto 4px;position:relative}
+.cr-ringnum{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:30px}
+.cr-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:700;padding:5px 11px;border-radius:99px;letter-spacing:.05em}
+.cr-badge.pass{background:rgba(52,211,153,.14);color:var(--emerald);border:1px solid rgba(52,211,153,.3)}
+.cr-badge.fail{background:rgba(248,113,113,.13);color:var(--red);border:1px solid rgba(248,113,113,.3)}
+.cr-codebox{font-family:var(--mono);font-size:11.5px;color:var(--tx-dim);background:#070d12;border:1px solid var(--line);border-radius:8px;padding:11px 12px;word-break:break-all;margin-top:8px;max-height:80px;overflow:auto}
+.cr-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+.cr-stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px}
+.cr-stat .n{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--teal)}
+.cr-stat .l{font-size:12px;color:var(--tx-dim);margin-top:2px}
+.cr-secline{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--tx-faint);margin:22px 0 10px}
+.cr-secline::after{content:"";flex:1;height:1px;background:var(--line)}
+.cr-card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:9px}
+.cr-cardtop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer}
+.cr-name{font-weight:600;font-size:14.5px}
+.cr-mail{font-family:var(--mono);font-size:12px;color:var(--tx-dim)}
+.cr-score{margin-left:auto;font-family:var(--mono);font-weight:700;font-size:17px}
+.cr-meta{font-family:var(--mono);font-size:11.5px;color:var(--tx-faint);margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.cr-flag{color:var(--amber)}
+.cr-detail{margin-top:12px;border-top:1px dashed var(--line2);padding-top:11px;font-size:13px;line-height:1.55;color:var(--tx-dim)}
+.cr-qline{display:flex;gap:8px;align-items:flex-start;margin:5px 0;font-size:12.5px}
+.cr-ok{color:var(--emerald)}.cr-no{color:var(--red)}
+.cr-hrlink{font-family:var(--mono);font-size:11px;color:var(--tx-faint);background:none;border:none;cursor:pointer}
+.cr-hrlink:hover{color:var(--teal)}
+.cr-note{font-size:12.5px;color:var(--tx-faint);line-height:1.55;margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.cr-abs-hr{position:absolute;right:14px;bottom:10px}
+.err{color:var(--red);font-size:13px;margin-top:12px}
+@media(max-width:560px){.cr-h1{font-size:24px}.cr-stats{grid-template-columns:1fr 1fr}.cr-qtext{font-size:16px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#1d2a33;border-radius:9px}
+`;
+
+function TitleBar({tab}){
+  return (
+    <div className="cr-titlebar">
+      <span className="cr-dot" style={{background:"#ff5f57"}}/>
+      <span className="cr-dot" style={{background:"#febc2e"}}/>
+      <span className="cr-dot" style={{background:"#28c840"}}/>
+      <span className="cr-tabname">{tab}</span>
+    </div>
+  );
+}
+
+function Row({s,open,setOpen}){
+  const isOpen=open[s.email];
+  return (
+    <div className="cr-card">
+      <div className="cr-cardtop" onClick={()=>setOpen(o=>({...o,[s.email]:!o[s.email]}))}>
+        <span className={`cr-badge ${s.passed?"pass":"fail"}`}>{s.passed?"PASS":"FAIL"}</span>
+        <div><div className="cr-name">{s.name}</div><div className="cr-mail">{s.email}</div></div>
+        <span className="cr-score" style={{color:s.passed?"var(--emerald)":"var(--tx-dim)"}}>{s.score}%</span>
+      </div>
+      <div className="cr-meta">
+        <span>{s.correct}/{s.total} correct</span>
+        <span>⏱ {fmtTime(s.timeTaken)}</span>
+        <span className={s.tabSwitches>2?"cr-flag":""}>{s.tabSwitches>2?"⚑ ":""}{s.tabSwitches} tab-switch</span>
+        <span>{fmtDate(s.submittedAt)}</span>
+        <button className="cr-hrlink" onClick={()=>setOpen(o=>({...o,[s.email]:!o[s.email]}))}>{isOpen?"hide ▲":"details ▼"}</button>
+      </div>
+      {isOpen&&(
+        <div className="cr-detail">
+          <div style={{fontFamily:"var(--mono)",fontSize:11.5,color:"var(--tx-faint)",marginBottom:6}}>// short answer</div>
+          <div style={{whiteSpace:"pre-wrap",marginBottom:12}}>{s.textAnswer||"—"}</div>
+          <div style={{fontFamily:"var(--mono)",fontSize:11.5,color:"var(--tx-faint)",marginBottom:6}}>// per-question</div>
+          {s.breakdown?.map(b=>(
+            <div key={b.id} className="cr-qline">
+              <span className={b.ok?"cr-ok":"cr-no"}>{b.ok?"✓":"✕"}</span>
+              <span><b style={{fontFamily:"var(--mono)",color:"var(--tx-faint)"}}>{b.topic}</b> — {b.q}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App(){
+  const [view,setView]=useState("start");
+  const [name,setName]=useState("");
+  const [email,setEmail]=useState("");
+  const [err,setErr]=useState("");
+  const [checking,setChecking]=useState(false);
+  const [order,setOrder]=useState([]);
+  const [idx,setIdx]=useState(0);
+  const [answers,setAnswers]=useState({});
+  const [text,setText]=useState("");
+  const [remaining,setRemaining]=useState(CONFIG.DURATION_SEC);
+  const [tabSwitches,setTabSwitches]=useState(0);
+  const [result,setResult]=useState(null);
+  const [resultCode,setResultCode]=useState("");
+  const [pass,setPass]=useState("");
+  const [subs,setSubs]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [open,setOpen]=useState({});
+  const [importCode,setImportCode]=useState("");
+
+  const startedAt=useRef(0);
+  const answersRef=useRef({});
+  const textRef=useRef("");
+  const tabRef=useRef(0);
+  const submitted=useRef(false);
+
+  useEffect(()=>{answersRef.current=answers;},[answers]);
+  useEffect(()=>{textRef.current=text;},[text]);
+  useEffect(()=>{tabRef.current=tabSwitches;},[tabSwitches]);
+
+  const beginTest=async()=>{
+    setErr("");
+    if(name.trim().length<2) return setErr("Please enter your full name.");
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setErr("Please enter a valid email address.");
+    if(CONFIG.ONE_ATTEMPT_PER_EMAIL&&hasStorage()){
+      setChecking(true);
+      try{const r=await window.storage.get(keyFor(email),true);if(r&&r.value){setChecking(false);return setView("already");}}catch{}
+      setChecking(false);
+    }
+    const shuffled=shuffle(QUESTIONS).map(q=>({...q,options:shuffle(q.options)}));
+    setOrder(shuffled);setIdx(0);setAnswers({});setText("");setTabSwitches(0);
+    setRemaining(CONFIG.DURATION_SEC);startedAt.current=Date.now();submitted.current=false;
+    setView("test");
+  };
+
+  const finishTest=useCallback(async()=>{
+    if(submitted.current) return;
+    submitted.current=true;
+    const a=answersRef.current;
+    let correct=0;
+    const breakdown=QUESTIONS.map(q=>{const ok=a[q.id]===q.correct;if(ok)correct++;return{id:q.id,topic:q.topic,q:q.q,chosen:a[q.id]||null,correct:q.correct,ok};});
+    const percent=Math.round((correct/TOTAL)*100);
+    const passed=percent>=CONFIG.PASS_PERCENT;
+    const timeTaken=Math.min(CONFIG.DURATION_SEC,Math.round((Date.now()-startedAt.current)/1000));
+    const rec={name:name.trim(),email:email.trim().toLowerCase(),score:percent,correct,total:TOTAL,passed,tabSwitches:tabRef.current,timeTaken,textAnswer:textRef.current.trim(),breakdown,submittedAt:new Date().toISOString()};
+    setResult(rec);
+    try{setResultCode(btoa(unescape(encodeURIComponent(JSON.stringify(rec)))));}catch{setResultCode("");}
+    if(hasStorage()){try{await window.storage.set(keyFor(rec.email),JSON.stringify(rec),true);}catch{}}
+    setView("submitted");
+  },[name,email]);
+
+  useEffect(()=>{
+    if(view!=="test") return;
+    const t=setInterval(()=>{
+      const left=CONFIG.DURATION_SEC-Math.round((Date.now()-startedAt.current)/1000);
+      if(left<=0){clearInterval(t);setRemaining(0);finishTest();}
+      else setRemaining(left);
+    },500);
+    return()=>clearInterval(t);
+  },[view,finishTest]);
+
+  useEffect(()=>{
+    if(view!=="test") return;
+    const onHide=()=>{if(document.hidden)setTabSwitches(n=>n+1);};
+    document.addEventListener("visibilitychange",onHide);
+    window.addEventListener("blur",onHide);
+    return()=>{document.removeEventListener("visibilitychange",onHide);window.removeEventListener("blur",onHide);};
+  },[view]);
+
+  const loadSubs=useCallback(async()=>{
+    if(!hasStorage()){setSubs([]);return;}
+    setLoading(true);
+    try{
+      const list=await window.storage.list("sub_",true);
+      const keys=(list?.keys||[]).map(k=>typeof k==="string"?k:k?.key).filter(Boolean);
+      const recs=await Promise.all(keys.map(async k=>{try{const r=await window.storage.get(k,true);return r?.value?JSON.parse(r.value):null;}catch{return null;}}));
+      setSubs(recs.filter(Boolean).sort((x,y)=>y.score-x.score));
+    }catch{setSubs([]);}
+    setLoading(false);
+  },[]);
+
+  const doAdminLogin=()=>{
+    if(pass===CONFIG.ADMIN_PASSCODE){setErr("");setView("admin");loadSubs();}
+    else setErr("Wrong passcode.");
+  };
+
+  const importResult=()=>{
+    try{
+      const rec=JSON.parse(decodeURIComponent(escape(atob(importCode.trim()))));
+      if(!rec.email||rec.score===undefined) throw 0;
+      setSubs(s=>[...s.filter(x=>x.email!==rec.email),rec].sort((a,b)=>b.score-a.score));
+      setImportCode("");setErr("");
+    }catch{setErr("Couldn't read that result code.");}
+  };
+
+  const exportCsv=()=>{
+    const rows=[["Name","Email","Score%","Correct","Total","Result","TabSwitches","TimeTaken(s)","SubmittedAt","TextAnswer"]];
+    subs.forEach(s=>rows.push([s.name,s.email,s.score,s.correct,s.total,s.passed?"PASS":"FAIL",s.tabSwitches,s.timeTaken,fmtDate(s.submittedAt),(s.textAnswer||"").replace(/\n/g," ")]));
+    const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+    const a=document.createElement("a");a.href=url;a.download="screening_results.csv";a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const clearAll=async()=>{
+    if(!window.confirm("Delete all submissions?")) return;
+    if(hasStorage()){
+      try{const list=await window.storage.list("sub_",true);const keys=(list?.keys||[]).map(k=>typeof k==="string"?k:k?.key).filter(Boolean);await Promise.all(keys.map(k=>window.storage.delete(k,true).catch(()=>{})));}catch{}
+    }
+    setSubs([]);
+  };
+
+  const answeredCount=Object.keys(answers).length;
+
+  return (
+    <div className="cr-root">
+      <style>{css}</style>
+      <div className="cr-wrap">
+
+        {view==="start"&&(
+          <div className="cr-window" style={{position:"relative"}}>
+            <TitleBar tab="screening_test.kt"/>
+            <div className="cr-body">
+              <span className="cr-eyebrow">{CONFIG.COMPANY} · Screening</span>
+              <h1 className="cr-h1">{CONFIG.ROLE} <b>Test.</b></h1>
+              <p className="cr-sub">A short but challenging technical screen. {TOTAL} questions in {Math.round(CONFIG.DURATION_SEC/60)} minutes, covering Kotlin, Android internals and AI-assisted development.</p>
+              <p className="cr-comment">// instructions</p>
+              <ul className="cr-dim" style={{fontSize:13.5,lineHeight:1.7,paddingLeft:18}}>
+                <li>You get one attempt — read each question carefully.</li>
+                <li>A timer is running; the test auto-submits when time is up.</li>
+                <li>Tab and window switches are tracked — please stay on this page.</li>
+                <li>The final question is a short answer — write in your own words.</li>
+              </ul>
+              <label className="cr-label">// full name</label>
+              <input className="cr-input" value={name} onChange={e=>setName(e.target.value)} placeholder="Your name"/>
+              <label className="cr-label">// email</label>
+              <input className="cr-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@email.com"/>
+              {err&&<p className="err">{err}</p>}
+              <div style={{marginTop:22}}>
+                <button className="cr-btn cr-btn-go" onClick={beginTest} disabled={checking}>{checking?"Checking…":"▶  Start test"}</button>
+              </div>
+            </div>
+            <button className="cr-hrlink cr-abs-hr" onClick={()=>{setErr("");setView("adminLogin");}}>HR access →</button>
+          </div>
+        )}
+
+        {view==="already"&&(
+          <div className="cr-window">
+            <TitleBar tab="screening_test.kt"/>
+            <div className="cr-body" style={{textAlign:"center",padding:"40px 24px"}}>
+              <div style={{fontSize:40}}>✓</div>
+              <h1 className="cr-h1" style={{fontSize:22}}>You've already taken this test</h1>
+              <p className="cr-sub" style={{maxWidth:430,margin:"8px auto 0"}}>A submission from this email is already on record. Our team will review it and reach out if you're shortlisted.</p>
+            </div>
+          </div>
+        )}
+
+        {view==="test"&&order.length>0&&(()=>{
+          const isText=idx===TOTAL;
+          const q=order[idx];
+          const tc=remaining<=30?"crit":remaining<=120?"warn":"";
+          return (
+            <div className="cr-window">
+              <div className="cr-status">
+                <span className="cr-dim">{isText?"Short answer":`Q ${idx+1} / ${TOTAL}`}</span>
+                <div className="cr-prog"><span style={{width:`${(answeredCount/TOTAL)*100}%`}}/></div>
+                <span className={`cr-timer ${tc}`}>⏱ {fmtTime(remaining)}</span>
+              </div>
+              <div className="cr-body">
+                {!isText?(
+                  <>
+                    <span className="cr-qtopic">{q.topic}</span>
+                    <p className="cr-qtext">{q.q}</p>
+                    {q.code&&<pre className="cr-code">{q.code}</pre>}
+                    <div className="cr-opts">
+                      {q.options.map(o=>{
+                        const sel=answers[q.id]===o.id;
+                        return (
+                          <button key={o.id} className={`cr-opt ${sel?"sel":""}`} onClick={()=>setAnswers(p=>({...p,[q.id]:o.id}))}>
+                            <span className="cr-mark"/>
+                            <span>{o.text}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ):(
+                  <>
+                    <span className="cr-qtopic">AI workflow · short answer</span>
+                    <p className="cr-qtext" style={{fontWeight:600}}>{TEXT_QUESTION}</p>
+                    <textarea className="cr-input" value={text} onChange={e=>setText(e.target.value)} placeholder="Type your answer here…"/>
+                    <p className="cr-faint" style={{fontSize:12,marginTop:6}}>{text.trim().length} characters</p>
+                  </>
+                )}
+                <div className="cr-dots">
+                  {order.map((_,i)=>(
+                    <button key={i} className={`cr-dotbtn ${answers[order[i].id]?"done":""} ${i===idx?"cur":""}`} onClick={()=>setIdx(i)}>{i+1}</button>
+                  ))}
+                  <button className={`cr-dotbtn ${text.trim()?"done":""} ${idx===TOTAL?"cur":""}`} onClick={()=>setIdx(TOTAL)}>✎</button>
+                </div>
+                <div className="cr-foot">
+                  <button className="cr-btn cr-btn-ghost" disabled={idx===0} onClick={()=>setIdx(i=>i-1)}>← Back</button>
+                  {idx<TOTAL
+                    ?<button className="cr-btn cr-btn-go" onClick={()=>setIdx(i=>i+1)}>Next →</button>
+                    :<button className="cr-btn cr-btn-go" onClick={()=>{if(window.confirm(`Submit your test? ${answeredCount}/${TOTAL} MCQs answered.`))finishTest();}}>Submit test ✓</button>}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {view==="submitted"&&result&&(
+          <div className="cr-window">
+            <TitleBar tab="result.kt"/>
+            <div className="cr-body" style={{textAlign:"center"}}>
+              <span className="cr-eyebrow">Submitted</span>
+              <h1 className="cr-h1" style={{fontSize:24,margin:"8px 0 4px"}}>Thanks, {result.name.split(" ")[0]}!</h1>
+              {CONFIG.SHOW_SCORE_TO_CANDIDATE?(
+                <>
+                  <div className="cr-ring">
+                    <svg viewBox="0 0 120 120" width="130" height="130">
+                      <circle cx="60" cy="60" r="52" fill="none" stroke="#16222b" strokeWidth="10"/>
+                      <circle cx="60" cy="60" r="52" fill="none" stroke="var(--teal)" strokeWidth="10" strokeLinecap="round"
+                        strokeDasharray={`${2*Math.PI*52}`} strokeDashoffset={`${2*Math.PI*52*(1-result.score/100)}`} transform="rotate(-90 60 60)"/>
+                    </svg>
+                    <div className="cr-ringnum">{result.score}%</div>
+                  </div>
+                  <p className="cr-dim" style={{fontSize:13.5}}>{result.correct}/{result.total} correct · finished in {fmtTime(result.timeTaken)}</p>
+                </>
+              ):(
+                <div style={{fontSize:40,margin:"10px 0"}}>✓</div>
+              )}
+              <p className="cr-sub" style={{maxWidth:440,margin:"12px auto 0"}}>Your test has been recorded. Our team will review all submissions and contact shortlisted candidates for the interview round.</p>
+              {resultCode&&(
+                <details style={{marginTop:18,textAlign:"left"}}>
+                  <summary className="cr-faint cr-mono" style={{cursor:"pointer",fontSize:12}}>submission reference code (share with HR only if asked)</summary>
+                  <div className="cr-codebox">{resultCode}</div>
+                </details>
+              )}
+            </div>
+          </div>
+        )}
+
+        {view==="adminLogin"&&(
+          <div className="cr-window">
+            <TitleBar tab="hr_access.kt"/>
+            <div className="cr-body">
+              <span className="cr-eyebrow">HR access</span>
+              <h1 className="cr-h1" style={{fontSize:22}}>Dashboard</h1>
+              <label className="cr-label">// passcode</label>
+              <input className="cr-input" type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doAdminLogin()} placeholder="••••••••"/>
+              {err&&<p className="err">{err}</p>}
+              <div className="cr-foot">
+                <button className="cr-btn cr-btn-ghost" onClick={()=>{setErr("");setPass("");setView("start");}}>← Back</button>
+                <button className="cr-btn cr-btn-go" onClick={doAdminLogin}>Open dashboard</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view==="admin"&&(
+          <div className="cr-window">
+            <TitleBar tab="candidates.csv"/>
+            <div className="cr-body">
+              <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                <div>
+                  <span className="cr-eyebrow">HR dashboard</span>
+                  <h1 className="cr-h1" style={{fontSize:22,margin:"6px 0 0"}}>Candidates</h1>
+                </div>
+                <div style={{marginLeft:"auto",display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <button className="cr-btn cr-btn-ghost" onClick={loadSubs}>↻ Refresh</button>
+                  <button className="cr-btn cr-btn-ghost" onClick={exportCsv} disabled={!subs.length}>↓ CSV</button>
+                </div>
+              </div>
+              <div className="cr-stats">
+                <div className="cr-stat"><div className="n">{subs.length}</div><div className="l">Total submissions</div></div>
+                <div className="cr-stat"><div className="n" style={{color:"var(--emerald)"}}>{subs.filter(s=>s.passed).length}</div><div className="l">Passed (≥{CONFIG.PASS_PERCENT}%)</div></div>
+                <div className="cr-stat"><div className="n">{subs.length?Math.round(subs.reduce((a,s)=>a+s.score,0)/subs.length):0}%</div><div className="l">Average score</div></div>
+              </div>
+              {!hasStorage()&&<p className="cr-note" style={{color:"var(--amber)"}}>Shared storage isn't available. Candidates can send their reference code — import it below.</p>}
+              {loading&&<p className="cr-dim">Loading…</p>}
+              {!loading&&subs.length===0&&<p className="cr-dim" style={{fontSize:14,padding:"10px 0"}}>No submissions yet.</p>}
+              {!loading&&subs.length>0&&(
+                <>
+                  <div className="cr-secline">✓ Shortlist — passed</div>
+                  {subs.filter(s=>s.passed).map(s=><Row key={s.email} s={s} open={open} setOpen={setOpen}/>)}
+                  {subs.filter(s=>s.passed).length===0&&<p className="cr-dim" style={{fontSize:13}}>No one has passed yet.</p>}
+                  <div className="cr-secline">below cut-off</div>
+                  {subs.filter(s=>!s.passed).map(s=><Row key={s.email} s={s} open={open} setOpen={setOpen}/>)}
+                </>
+              )}
+              <details style={{marginTop:18}}>
+                <summary className="cr-faint cr-mono" style={{cursor:"pointer",fontSize:12}}>+ Import a submission reference code</summary>
+                <div style={{marginTop:10,display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <input className="cr-input" style={{flex:1,minWidth:220}} value={importCode} onChange={e=>setImportCode(e.target.value)} placeholder="Paste the candidate's code…"/>
+                  <button className="cr-btn cr-btn-ghost" onClick={importResult} disabled={!importCode.trim()}>Import</button>
+                </div>
+              </details>
+              {err&&<p className="err">{err}</p>}
+              <div className="cr-foot">
+                <button className="cr-btn cr-btn-ghost" onClick={()=>{setPass("");setView("start");}}>← Exit</button>
+                <button className="cr-btn cr-btn-danger" onClick={clearAll} disabled={!subs.length}>Clear all</button>
+              </div>
+              <p className="cr-note">This is a screening filter, not a proctored exam. Tab-switch tracking and shuffled options make casual cheating harder, but real confirmation comes from the assignment + live interview. ⚑ = candidate left the test window mid-test.</p>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
